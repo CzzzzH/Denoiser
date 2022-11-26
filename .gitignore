@@ -1,0 +1,17 @@
+.vscode
+__pycache__/
+
+assets/
+assets_test/
+
+halide_ops/bin
+halide_ops/build
+halide_ops/test
+
+*.png
+*.json
+*.exr
+
+*.pt
+*.pth.tar
+*.npz
