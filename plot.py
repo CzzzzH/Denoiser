@@ -2,6 +2,10 @@ from random import weibullvariate
 from util import *
 import json
 import os
+import seaborn as sns
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib
 
 def get_batch(list, batch_size):
     return [sum(x) / float(len(x))
@@ -118,14 +122,43 @@ def get_compared_curve(dir_path, file_name_1, file_name_2, title_1, title_2, bat
     plot_data_single("SSIM Loss", len(ssim_list_2) * batch_size, batch_size, "Loss(log)",
         [ssim_list_1, ssim_list_2], [title_1, title_2], os.path.join(dir_path, f"{title_1}_{title_2}_ssim.png"))
 
+def draw_video_denoising_line():
+    
+    with open('statistics/sbmc_video_test_1_rmse.json') as f:
+        rmse_1 = json.load(f) 
+    with open('statistics/sbmc_video_test_2_rmse.json') as f:
+        rmse_2 = json.load(f) 
+        
+    with open('statistics/sbmc_video_test_1_ssim.json') as f:
+        ssim_1 = json.load(f) 
+    with open('statistics/sbmc_video_test_2_ssim.json') as f:
+        ssim_2 = json.load(f) 
+    
+    data = []
+    for i in range(len(rmse_1)):
+        data.append({"Frame" : i + 1, "Value": rmse_1[i], "Metrics": "RMSE(regular)"})
+        data.append({"Frame" : i + 1, "Value": rmse_2[i], "Metrics": "RMSE(weight-shareing)"})          
+        data.append({"Frame" : i + 1, "Value": ssim_1[i], "Metrics": "SSIM(regular)"})
+        data.append({"Frame" : i + 1, "Value": ssim_2[i], "Metrics": "SSIM(weight-shareing)"})     
+        
+    sns.set_theme(style="darkgrid")
+    sns.set(rc={'figure.figsize':(10, 5)})
+    
+    data = pd.DataFrame(data)
+    ax = sns.lineplot(data=data, x="Frame", y="Value", hue="Metrics", style="Metrics", markers=["X", "o", "s", "*"])
+    ax.set(ylabel="")
+    ax = plt.gca()
+    ax.legend(loc="best")
+    ax.get_figure().savefig('visualization_curves/video_denoising.png', dpi=300)
+    
 if __name__ == "__main__":
 
-    dir_path = 'visualization_curves'
-    file_name_1 = 'sbmc_loss_1150'
-    file_name_2 = 'sbmc_loss_1150'
-    batch_size = 500
+    # dir_path = 'visualization_curves'
+    # file_name_1 = 'sbmc_loss_1150'
+    # file_name_2 = 'sbmc_loss_1150'
+    # batch_size = 500
     
-    get_single_curve(dir_path, file_name_1, "SBMC", batch_size)
+    # get_single_curve(dir_path, file_name_1, "SBMC", batch_size)
     # get_compared_curve(dir_path, file_name_1, file_name_2, "KPCN", "SBMC", batch_size)
-    
+    draw_video_denoising_line()
     

@@ -18,7 +18,7 @@ torch.manual_seed(0)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(f'Test Device: {device}')
 
-# test_cases = [f'shapenet_single_1_{i}' for i in range(1, 17)]
+test_cases = [f'shapenet_single_1_{i}' for i in range(1, 17)]
 # test_cases = [f'shapenet_pinhole_{i}' for i in range(1, 11)]
 # test_cases = [f'shapenet_dof_{i}' for i in range(1, 11)]
 # test_cases = ['shapenet_pinhole_4']
@@ -28,7 +28,7 @@ print(f'Test Device: {device}')
 # test_cases = ['veach-ajar']
 # test_cases = ['teapot']
 # test_cases = ['lego']
-test_cases = ['coffee']
+# test_cases = ['coffee']
 
 # visual_x = [168, 327, 297]
 # visual_y = [639, 261, 545]
@@ -42,7 +42,7 @@ def load_data(data_dir, mode='sbmc'):
         for i in range(1, 17):
             test_list.append(f'{data_dir}/test_video/shapenet_single_1_{i}_data.npz')
     else:
-        test_dir = os.path.join(data_dir, 'test')
+        test_dir = os.path.join(data_dir, 'test_video')
         test_list = os.listdir(test_dir)
         test_list = [os.path.join(test_dir, f'{test_case}_data.npz') for test_case in test_cases]
         
@@ -190,7 +190,8 @@ def test_sbmc(args):
                     predict_img = predict[i].permute(1, 2, 0).detach().cpu().numpy()
                     predict_img  = cv2.cvtColor((predict_img.clip(0, np.max(predict_img)) ** gamma_coeff)  * 255, cv2.COLOR_BGR2RGB)
                     cv2.imwrite(f'test_result/test_sbmc_shapenet_single_1_{i + 1}_denoised_video.png', predict_img)
-                    
+                    avg_rmse.append(np.sqrt(loss_l2).item())
+                    avg_ssim.append(loss_SSIM)
             else:
                 
                 loss = criterion(predict, gt).item()
@@ -216,11 +217,13 @@ def test_sbmc(args):
                 cv2.imwrite(f'test_result/test_sbmc_{test_cases[test_index]}_denoised.png', predict_img)
                 cv2.imwrite(f'test_result/test_sbmc_{test_cases[test_index]}_reference.png', gt_img)
 
-            avg_rmse.append(np.sqrt(loss_l2).item())
-            avg_ssim.append(loss_SSIM)
+                avg_rmse.append(np.sqrt(loss_l2).item())
+                avg_ssim.append(loss_SSIM)
     
-    with open(f"statistics/sbmc_video_test_1.json", "w") as f:
-        f.write(json.dumps(loss_list))
+    with open(f"statistics/sbmc_video_test_rmse.json", "w") as f:
+        f.write(json.dumps(avg_rmse))
+    with open(f"statistics/sbmc_video_test_ssim.json", "w") as f:
+        f.write(json.dumps(avg_ssim))
     
     avg_rmse = np.mean(avg_rmse)
     avg_ssim = np.mean(avg_ssim)
