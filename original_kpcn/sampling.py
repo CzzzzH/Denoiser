@@ -189,6 +189,6 @@ def importanceSampling(data, debug=False):
         imgplot.axes.get_xaxis().set_visible(False)
         imgplot.axes.get_yaxis().set_visible(False)
         plt.scatter(list(a[0] + 0.5 for a in pruned), list(a[1] - 0.5 for a in pruned), color="red", alpha=0.5)
-        plt.savefig("debug_vis/importance_map.png")
+        plt.savefig("visualization /importance_map.png")
         
     return (pruned + pad)
