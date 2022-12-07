@@ -6,11 +6,13 @@ import cv2
 from ttools.modules.image_operators import crop_like
 from . import modules as ops
 
-visual_x = [176, 335, 305]
-visual_y = [647, 269, 553]
+visual_x = [176, 335, 305, 185]
+visual_y = [647, 269, 553, 459]
+# visual_x = [168, 327, 297]
+# visual_y = [639, 261, 545]
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def save_kernel(kernel, spp_index, kernel_size=21, mode='sbmc'):
+def save_sbmc_kernel(kernel, spp_index, kernel_size=21):
 
     _, _, h, w = kernel.size()
     kernel = kernel.permute((0, 2, 3, 1))
@@ -19,11 +21,27 @@ def save_kernel(kernel, spp_index, kernel_size=21, mode='sbmc'):
     crop = (kernel_size - 1) // 2
     kernel = kernel[crop:-crop, crop:-crop, :, :]
 
-    for i in range(3):
+    for i in range(len(visual_x)):
         k = kernel[visual_y[i], visual_x[i]]
         k = (k - k.min()) / (k.max() - k.min())
         k = cv2.resize(k, (kernel_size * 10, kernel_size * 10))
         cv2.imwrite(f"test_result/sbmc_kernel_{spp_index}_{visual_x[i]}_{visual_y[i]}.png", k * 255)
+
+def save_kpcn_kernel(diffuse_kernel, specular_kernel, kernel_size=21):
+
+    for kernel in [diffuse_kernel, specular_kernel]:
+        
+        name = 'diffuse' if kernel is diffuse_kernel else 'specular'
+        
+        _, _, h, w = kernel.size()
+        kernel = kernel.permute((0, 2, 3, 1))
+        kernel = F.softmax(kernel, dim=3).view(-1, h, w, kernel_size, kernel_size)[0].cpu().numpy()
+
+        for i in range(len(visual_x)):
+            k = kernel[visual_y[i], visual_x[i]]
+            k = (k - k.min()) / (k.max() - k.min())
+            k = cv2.resize(k, (kernel_size * 10, kernel_size * 10))
+            cv2.imwrite(f"test_result/sbmc_kernel_{name}_{visual_x[i]}_{visual_y[i]}.png", k * 255)
 
 class SBMC(nn.Module):
     
@@ -49,7 +67,7 @@ class SBMC(nn.Module):
 
     def __init__(self, n_features, n_global_features, width=128,
                  embedding_width=128, ksize=21, splat=True, nsteps=3,
-                 pixel=False):
+                 pixel=False, video=False):
         super(SBMC, self).__init__()
 
         if ksize < 3 or (ksize % 2 == 0):
@@ -59,6 +77,7 @@ class SBMC(nn.Module):
             raise ValueError("Multisteps requires at least one sample/pixel "
                              "step.")
 
+        self.video = video
         self.ksize = ksize
         self.splat = splat
         self.pixel = pixel
@@ -182,9 +201,16 @@ class SBMC(nn.Module):
 
         # Predict kernels based on the context information and
         # the current sample's features
+        if self.video:
+            window = []
+        
         sum_r, sum_w, max_w = None, None, None
-
+        sum_r_0, sum_w_0, max_w_0 = None, None, None
+        sum_r_1, sum_w_1, max_w_1 = None, None, None
+        sum_r_2, sum_w_2, max_w_2 = None, None, None
+        
         for sp in range(spp):
+            
             f = features[:, sp].to(radiance.device)
             f = torch.cat([f, propagated], 1)
             r = radiance[:, sp].to(radiance.device)
@@ -193,17 +219,46 @@ class SBMC(nn.Module):
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
 
-            # save_kernel(kernels, spp_index=sp)
+            # save_sbmc_kernel(kernels, spp_index=sp)
 
             # Update radiance estimate
-            sum_r, sum_w, max_w = self.kernel_update(
-                crop_like(r, kernels), kernels, sum_r, sum_w, max_w)
+            
+            if self.video:
+                sum_r_0, sum_w_0, max_w_0 = self.kernel_update(r, kernels, sum_r_0, sum_w_0, max_w_0)
+                
+                if sp > 0:
+                    sum_r_1, sum_w_1, max_w_1 = self.kernel_update(r, kernels, sum_r_1, sum_w_1, max_w_1)
+                if sp  > 1:
+                    sum_r_2, sum_w_2, max_w_2 = self.kernel_update(r, kernels, sum_r_2, sum_w_2, max_w_2)
+                
+                if sp >= 2:
+                    if sp % 3 == 2:
+                        window.append(sum_r_0 / (sum_w_0 + self.eps))
+                        sum_r_0, sum_w_0, max_w_0 = None, None, None
+                    elif sp % 3 == 0:
+                        window.append(sum_r_1 / (sum_w_1 + self.eps))
+                        sum_r_1, sum_w_1, max_w_1 = None, None, None
+                    elif sp % 3 == 1:
+                        window.append(sum_r_2 / (sum_w_2 + self.eps))
+                        sum_r_2, sum_w_2, max_w_2 = None, None, None
+            else:
+                sum_r, sum_w, max_w = self.kernel_update(crop_like(r, kernels), kernels, sum_r, sum_w, max_w)
+                
             if limit_memory_usage:
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
-
+                    
         # Normalize output with the running sum
-        output = sum_r / (sum_w + self.eps)
+        if self.video:
+            output = []
+            for i in range(len(window)):
+                if i == 0 or i == len(window) - 1:
+                    output.append(window[i])
+                elif i % 2 == 1:
+                    output.append((window[i] + window[i + 1]) / 2)
+            output = torch.cat(output, dim=0)
+        else:
+            output = sum_r / (sum_w + self.eps)
 
         # Remove the invalid boundary data
         crop = (self.ksize - 1) // 2
@@ -268,6 +323,8 @@ class KPCN(nn.Module):
         b_specular = crop_like(data["kpcn_specular_buffer"],
                                k_specular).contiguous()
 
+        # save_kpcn_kernel(k_diffuse, k_specular)
+        
         # Kernel reconstruction
         r_diffuse, _ = self.kernel_apply(b_diffuse, k_diffuse)
         r_specular, _ = self.kernel_apply(b_specular, k_specular)

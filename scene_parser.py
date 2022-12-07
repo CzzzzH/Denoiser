@@ -53,37 +53,47 @@ def get_shapenet_scene(h, w, method='kpcn', scene_type='pinhole'):
     scene_dict_specular['PerspectiveCamera']['film']['height'] = h
     scene_dict_gt['PerspectiveCamera']['film']['width'] = w
     scene_dict_gt['PerspectiveCamera']['film']['height'] = h
-    scene_dict_gt['integrator']['max_depth'] = -1
     
     # Modify camera transform
-    camera_transform = generate_transform(0.5, 10)
-    scene_dict['PerspectiveCamera']['to_world'] = camera_transform @ scene_dict['PerspectiveCamera']['to_world']
-    scene_dict_specular['PerspectiveCamera']['to_world'] = camera_transform @ scene_dict_specular['PerspectiveCamera']['to_world']
-    scene_dict_gt['PerspectiveCamera']['to_world'] = camera_transform @ scene_dict_gt['PerspectiveCamera']['to_world']
+    if scene_type != 'single':
+        camera_transform = generate_transform(0.5, 10)
+        scene_dict['PerspectiveCamera']['to_world'] = camera_transform @ scene_dict['PerspectiveCamera']['to_world']
+        scene_dict_specular['PerspectiveCamera']['to_world'] = camera_transform @ scene_dict_specular['PerspectiveCamera']['to_world']
+        scene_dict_gt['PerspectiveCamera']['to_world'] = camera_transform @ scene_dict_gt['PerspectiveCamera']['to_world']
     
     # Modify environment map type
-    env_type = np.random.randint(0, 20)
+    if scene_type != 'single':
+        env_type = np.random.randint(0, 20)
+    else: env_type = 0
+    
     scene_dict['EnvironmentMapEmitter']['filename'] = f'D:/UCSD/CSE_274_Graphics/Denoiser/assets/envmaps/envmap_{env_type}.hdr'
     scene_dict_specular['EnvironmentMapEmitter']['filename'] = f'D:/UCSD/CSE_274_Graphics/Denoiser/assets/envmaps/envmap_{env_type}.hdr'
     scene_dict_gt['EnvironmentMapEmitter']['filename'] =  f'D:/UCSD/CSE_274_Graphics/Denoiser/assets/envmaps/envmap_{env_type}.hdr'
     
     # Modify depth of field parameters
-    if 'focus_distance' in scene_dict['PerspectiveCamera']:
-        focus_distance_var = np.random.uniform(-5, 5)
-        aperture_radius_var = np.random.uniform(-0.5, 0.5)
-        scene_dict['PerspectiveCamera']['focus_distance'] += focus_distance_var
-        scene_dict_specular['PerspectiveCamera']['focus_distance'] += focus_distance_var
-        scene_dict_gt['PerspectiveCamera']['focus_distance'] += focus_distance_var
-        scene_dict['PerspectiveCamera']['aperture_radius'] += aperture_radius_var
-        scene_dict_specular['PerspectiveCamera']['aperture_radius'] += aperture_radius_var
-        scene_dict_gt['PerspectiveCamera']['aperture_radius'] += aperture_radius_var
+    if scene_type != 'single':
+        if 'focus_distance' in scene_dict['PerspectiveCamera']:
+            focus_distance_var = np.random.uniform(-5, 5)
+            aperture_radius_var = np.random.uniform(-0.5, 0.5)
+            scene_dict['PerspectiveCamera']['focus_distance'] += focus_distance_var
+            scene_dict_specular['PerspectiveCamera']['focus_distance'] += focus_distance_var
+            scene_dict_gt['PerspectiveCamera']['focus_distance'] += focus_distance_var
+            scene_dict['PerspectiveCamera']['aperture_radius'] += aperture_radius_var
+            scene_dict_specular['PerspectiveCamera']['aperture_radius'] += aperture_radius_var
+            scene_dict_gt['PerspectiveCamera']['aperture_radius'] += aperture_radius_var
+        else:
+            fov = 45
+            fov_var = np.random.uniform(-15, 15)
+            scene_dict['PerspectiveCamera']['fov'] = fov + fov_var
+            scene_dict_specular['PerspectiveCamera']['fov'] = fov + fov_var
+            scene_dict_gt['PerspectiveCamera']['fov'] = fov + fov_var
+    
     else:
-        fov = 45
-        fov_var = np.random.uniform(-15, 15)
-        scene_dict['PerspectiveCamera']['fov'] = fov + fov_var
-        scene_dict_specular['PerspectiveCamera']['fov'] = fov + fov_var
-        scene_dict_gt['PerspectiveCamera']['fov'] = fov + fov_var
-
+        fov = 30
+        scene_dict['PerspectiveCamera']['fov'] = fov
+        scene_dict_specular['PerspectiveCamera']['fov'] = fov
+        scene_dict_gt['PerspectiveCamera']['fov'] = fov
+        
     for (i, obj_index) in enumerate(obj_indexes):
 
         obj_path = os.path.join(dir_path, shape_net_list[obj_index], "models/model_normalized.obj")

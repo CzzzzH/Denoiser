@@ -57,15 +57,15 @@ def load_scene(dir, scene_dict=None, scene_dict_specular=None, scene_dict_gt=Non
     params = mi.traverse(scene)
     params_specular = mi.traverse(scene_specular)
     
-    if test == False:
-        params["PerspectiveCamera.film.size"] = [128, 128]
-        params["PerspectiveCamera.film.crop_size"] = [128, 128]    
-        params_specular["PerspectiveCamera.film.size"] = [128, 128]
-        params_specular["PerspectiveCamera.film.crop_size"] = [128, 128]
+    # if test == False:
+    #     params["PerspectiveCamera.film.size"] = [128, 128]
+    #     params["PerspectiveCamera.film.crop_size"] = [128, 128]    
+    #     params_specular["PerspectiveCamera.film.size"] = [128, 128]
+    #     params_specular["PerspectiveCamera.film.crop_size"] = [128, 128]
         
-        if gt:
-            params_gt["PerspectiveCamera.film.size"] = [128, 128]
-            params_gt["PerspectiveCamera.film.crop_size"] = [128, 128]
+    #     if gt:
+    #         params_gt["PerspectiveCamera.film.size"] = [128, 128]
+    #         params_gt["PerspectiveCamera.film.crop_size"] = [128, 128]
 
     if transform != None:
         params["PerspectiveCamera.to_world"] = transform @ params["PerspectiveCamera.to_world"]
@@ -93,7 +93,7 @@ def generate_data(name, dir, total_sample=8, frame=0, preset_transform=None, sce
             gt = np.array(scene_gt.integrator().render(scene_gt, spp=1024))
     
     scene, scene_specular, scene_gt = load_scene(dir, scene_dict, scene_dict_specular, scene_dict_gt, transform, test)
-    gt = scene_gt.integrator().render(scene_gt, spp=1024 if test else 8192)
+    gt = scene_gt.integrator().render(scene_gt, spp=512 if test else 8192)
     mi.util.write_bitmap(f"visualization_gt/gt_{name}.png", gt[:, :, :3], write_async=False)
     gt = np.array(gt)
     
@@ -123,6 +123,9 @@ def generate_data(name, dir, total_sample=8, frame=0, preset_transform=None, sce
     final_data[:, :, :, 3:6] = np.log(final_data[:, :, :, 3:6] + 1) # Adjust Specular
     # final_data[:, :, :, 6:9] = final_data[:, :, :, 6:9].clip(0, np.Inf) # Adjust Diffuse (Not needed)
     
+    if preset_transform != None:
+        final_data[:, :, :, 24] = (frame - 1) / 16 # Time feature
+    
     for depth in range(5): # Adjust Probability
         final_data[:, :, :, 32 + depth * 9] = np.log(final_data[:, :, :, 32 + depth * 9] + 1)
         final_data[:, :, :, 33 + depth * 9] = np.log(final_data[:, :, :, 33 + depth * 9] + 1)
@@ -143,7 +146,8 @@ if __name__ == "__main__":
     parser.add_argument('--frame-num', type=int, default=10)
     parser.add_argument('--object-num', type=int, default=500)
     parser.add_argument('--test', action='store_true')
-    parser.add_argument('--scene-type', type=str, default="complex")
+    parser.add_argument('--video', action='store_true')
+    parser.add_argument('--scene-type', type=str, default="indoor")
     args = parser.parse_args()
     
     suffix = '_test' if args.test else ''
@@ -153,13 +157,25 @@ if __name__ == "__main__":
         
         if args.test: h, w = 512, 512
         else: h, w = 128, 128
-        
         dir = f"assets{suffix}/shapenet"
         print(f"Generating ShapeNet Scene ({args.scene_type}) --> {args.object_index}")
-
-        scene_dict, scene_dict_specular, scene_dict_gt = get_shapenet_scene(h, w, method='sbmc', scene_type=args.scene_type)
-        scene_name = f'shapenet_{args.scene_type}_{args.object_index}'
-        generate_data(scene_name, dir, args.total_sample, 0, None, scene_dict, scene_dict_specular, scene_dict_gt, args.test)
+        
+        if args.video:
+            
+            scene_dict, scene_dict_specular, scene_dict_gt = get_shapenet_scene(h, w, method='sbmc', scene_type=args.scene_type)
+            translation_step = 0.1
+            translation_vector = np.random.uniform(-1, 1, 3)
+            for i in range(args.frame_num):
+                
+                translation_vector /= np.linalg.norm(translation_vector, axis=0)
+                preset_transform = mi.Transform4f.translate(translation_vector * (translation_step * i))
+                current_frame = i + 1
+                name = f'shapenet_{args.scene_type}_{args.object_index}'
+                generate_data(f'{name}_{current_frame}', dir, args.total_sample, current_frame, preset_transform, scene_dict, scene_dict_specular, scene_dict_gt, args.test)
+        else:
+            scene_dict, scene_dict_specular, scene_dict_gt = get_shapenet_scene(h, w, method='sbmc', scene_type=args.scene_type)
+            scene_name = f'shapenet_{args.scene_type}_{args.object_index}'
+            generate_data(scene_name, dir, args.total_sample, 0, None, scene_dict, scene_dict_specular, scene_dict_gt, args.test)
         
     # Genereate indoor data
     if args.scene_type == "indoor":
@@ -172,7 +188,7 @@ if __name__ == "__main__":
             name = asset_dir[index]
             
             if args.test:
-                test_case = 'living-room'
+                test_case = 'veach'
                 if test_case not in name:
                     continue
                 print(f"Generate Scene {asset_dir[index]} -> Test")
@@ -196,12 +212,21 @@ if __name__ == "__main__":
         asset_dir = os.listdir(dir)
         
         for index in range(len(asset_dir)):
-            
             name = asset_dir[index]
-            for i in range(args.frame_num):
-                
-                current_frame = i + 1
-                if os.path.exists(f"data/train/{name}_{current_frame}_data.npz"):
+            
+            if args.test:
+                test_case = 'coffee'
+                if test_case not in name:
                     continue
-                print(f"Generate Scene {asset_dir[index]} -> Frame {current_frame}")
-                generate_data(f'{name}_{current_frame}', dir, total_sample=args.total_sample, frame=current_frame, test=args.test)
+                print(f"Generate Scene {asset_dir[index]} -> Test")
+                generate_data(f'{name}', dir, total_sample=args.total_sample, frame=0, test=args.test)
+                
+            else:
+                
+                for i in range(args.frame_num):
+                    
+                    current_frame = i + 1
+                    if os.path.exists(f"data/train/{name}_{current_frame}_data.npz"):
+                        continue
+                    print(f"Generate Scene {asset_dir[index]} -> Frame {current_frame}")
+                    generate_data(f'{name}_{current_frame}', dir, total_sample=args.total_sample, frame=current_frame, test=args.test)

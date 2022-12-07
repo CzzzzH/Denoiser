@@ -6,7 +6,7 @@ import cv2
 class KPCN(nn.Module):
 
     def __init__(self, device, input_channels, hidden_channels=100, recon_kernel_size=21, conv_kernel_size=5, 
-                 conv_depth=9, conv_kernel_nums=100):
+                 conv_depth=9, conv_kernel_nums=100, mode='kpcn'):
 
         super(KPCN, self).__init__()
         self.device = device
@@ -16,6 +16,7 @@ class KPCN(nn.Module):
         self.conv_kernel_nums = conv_kernel_nums
         self.input_channels = input_channels
         self.hidden_channels = hidden_channels
+        self.mode = mode
         self.conv = self.make_net()
 
     def make_net(self):
@@ -32,7 +33,7 @@ class KPCN(nn.Module):
                 nn.ReLU()
             ]
 
-        out_channels = self.recon_kernel_size ** 2
+        out_channels = 3 if self.mode == 'dpcn' else self.recon_kernel_size ** 2
         layers += [nn.Conv2d(self.hidden_channels, out_channels, self.conv_kernel_size)]
         
         for layer in layers:

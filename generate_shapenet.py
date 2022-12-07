@@ -22,10 +22,17 @@ def select_data():
 def generate_data():
 
     scene_type = 'pinhole'
-    data_num = 5
+    data_num = 10
     test = True
     data_dir = 'test' if test == True else 'train'
     
+    # i = 1
+    # while i <= data_num:
+    #     if not os.path.exists(f'data/{data_dir}/shapenet_{scene_type}_{i}_1_data.npz'):
+    #         os.system(f'python generate_data.py --object-index {i} --scene-type single --total-sample 2 --frame-num 16 --video --test')
+    #         i = 0
+    #     i += 1
+        
     i = 1
     while i <= data_num:
         if not os.path.exists(f'data/{data_dir}/shapenet_{scene_type}_{i}_data.npz'):

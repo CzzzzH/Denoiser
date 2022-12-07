@@ -22,7 +22,7 @@ def show_data_sbs(index, data1, data2, figsize=(15, 15)):
     ax1.axis('off')
     ax2.axis('off')
     
-    plt.savefig(f'debug_vis/compare_{index}.png')
+    plt.savefig(f'visualization_debug/compare_{index}.png')
     plt.close()
 
 def to_torch_tensors(data):
@@ -38,19 +38,6 @@ def to_torch_tensors(data):
         
     return data
     
-def send_to_device(data, device):
-
-    if isinstance(data, dict):
-        for k, v in data.items():
-            if isinstance(v, torch.Tensor):
-                data[k] = v.to(device)
-    elif isinstance(data, list):
-        for i, v in enumerate(data):
-            if isinstance(v, torch.Tensor):
-                data[i] = v.to(device)
-    
-    return data
-
 def getsize(obj):
 
     marked = {id(obj)}
@@ -58,6 +45,7 @@ def getsize(obj):
     sz = 0
 
     while obj_q:
+        
         sz += sum(map(sys.getsizeof, obj_q))
 
         # Lookup all the object reffered to by the object in obj_q.

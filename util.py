@@ -1,6 +1,16 @@
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
+import argparse
+
+def parse_args():
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--checkpoint', type=int, default=-1)
+    parser.add_argument('--mode', type=str, default='kpcn')
+    parser.add_argument('--video', action='store_true')
+    args = parser.parse_args()
+    return args
 
 def show_data_compare(index, data1, data2, figsize=(15, 15)):
 
@@ -45,11 +55,10 @@ def plot_data(title, max_iter, iter_batch, y_label_left, y_label_right, data_lis
 
     plt.savefig(save_path)
 
-def plot_data_single(title, max_iter, iter_batch, y_label, data_list, label_list, save_path):
+def plot_data_single(title, max_iter, iter_batch, y_label, data_list, label_list, save_path, conceal_y_axis=False):
 
     iters = np.linspace(1, max_iter, max_iter // iter_batch)
     axis = plt.figure().add_subplot()
-    plot_list = []
     color_list_left = ['red', 'darkorange', 'yellowgreen', 'seagreen', 'royalblue', 'darkviolet']
     
     lns = []
@@ -64,7 +73,10 @@ def plot_data_single(title, max_iter, iter_batch, y_label, data_list, label_list
     axis.set_xlabel('Iterations')
     axis.set_ylabel(y_label)
     axis.set_facecolor('#eafff5')
-    axis.get_yaxis().set_ticks([])
+    
+    if conceal_y_axis:
+        axis.get_yaxis().set_ticks([])
+    
     axis.set_xlim(xmin=0)
     axis.grid(True)
     

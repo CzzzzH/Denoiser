@@ -2,6 +2,8 @@ import torch
 from tqdm import tqdm
 import numpy as np
 
+sample_num = 8
+
 class KPCNDataset(torch.utils.data.Dataset):
     
     def __init__(self, data_list):
@@ -14,7 +16,7 @@ class KPCNDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         
         data = self.data_list[idx]
-        sample_features = data["sample_features"]
+        sample_features = data["sample_features"][:sample_num]
         gt = data["gt"]
 
         sample = {}
@@ -39,7 +41,6 @@ class SBMCDataset(torch.utils.data.Dataset):
         
         data_example = data_list[0]
         self.h, self.w = data_example["gt"].shape[:2]
-        self.global_features = torch.Tensor(data_example["global_features"]).unsqueeze(-1).unsqueeze(-1)
 
     def __len__(self):
         return len(self.data_list)
@@ -47,13 +48,39 @@ class SBMCDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         
         data = self.data_list[idx]
-        sample_features = data["sample_features"]
+        sample_features = data["sample_features"][:sample_num]
         gt = data["gt"]
+        global_features = torch.Tensor(data["global_features"]).unsqueeze(-1).unsqueeze(-1)
 
         sample = {}
         sample["radiance"] = torch.Tensor(sample_features[:, :, :, :3]).permute(0, 3, 1, 2)
         sample["features"] = torch.Tensor(sample_features[:, :, :, 3:]).permute(0, 3, 1, 2)
-        sample["global_features"] = self.global_features
+        sample["global_features"] = global_features
         gt = torch.Tensor(gt)
+        
+        return sample, gt
+
+class SBMCVideoDataset(torch.utils.data.Dataset):
+    
+    def __init__(self, data_list):
+        
+        self.data_list = [ [data for data in data_list[k:k + 16]] for k in range(0, len(data_list), 16)]
+        data_example = data_list[0]
+        self.h, self.w = data_example["gt"].shape[:2]
+        self.global_features = torch.Tensor(data_example["global_features"]).unsqueeze(-1).unsqueeze(-1)
+        
+    def __len__(self):
+        return len(self.data_list)
+
+    def __getitem__(self, idx):
+        
+        data_patch = self.data_list[idx]
+        sample_features = torch.cat([torch.Tensor(data["sample_features"]) for data in data_patch], dim=0)
+        gt = torch.cat([torch.Tensor(data["gt"]).unsqueeze(0) for data in data_patch], dim=0)
+        
+        sample = {}
+        sample["radiance"] = sample_features[:, :, :, :3].permute(0, 3, 1, 2)
+        sample["features"] = sample_features[:, :, :, 3:].permute(0, 3, 1, 2)
+        sample["global_features"] = self.global_features
         
         return sample, gt

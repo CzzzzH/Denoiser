@@ -5,8 +5,9 @@ import numpy as np
 import pyexr
 import os
 import argparse
+
 from tqdm import tqdm
-from scene_parser import get_shapenet_single, get_shapenet_dov
+from scene_parser import get_shapenet_scene
 
 suffix = '_test'
 # suffix = ''
@@ -54,7 +55,7 @@ def render_thumbnail(scene, params, file_name):
 def write_exr(exr_list, file_name):
 
     for i in range(len(exr_list)):
-        pyexr.write(f"data/{file_name}_{i}.exr", exr_list[i])
+        pyexr.write(f"original_kpcn/data/test/{file_name}_{i}.exr", exr_list[i])
 
 def render_avo(scene, sample_num, file_name, gt=False):
 
@@ -67,20 +68,15 @@ def render_avo(scene, sample_num, file_name, gt=False):
     exr_dict = {'default': color, 'Color': color, 'Depth': depth, 'Normal': normal, 'Position': position, 'Albedo': albedo}
     
     if gt:
-        mi.util.write_bitmap(f"data_vis/{file_name}_gt.png", color, write_async=False)
+        mi.util.write_bitmap(f"original_kpcn/data_vis/{file_name}_gt.png", color, write_async=False)
 
     return exr_dict
 
-def generate_data(name, frame_number, translation_step, rotation_step, minimum_radiance, random_seed, h=None, w=None, scene_dict=None, scene_dict_specular=None):
+def load_scene(name, h=None, w=None, scene_dict=None, scene_dict_specular=None):
 
-    exr_list = []
-    gt_exr_list = []
-    translation_vector, rotation_axis = generate_translation(frame_number, random_seed)
-
-    # Render Scene
-    if scene_dict == None: scene = mi.load_file(f"assets{suffix}/regular/{name}/scene_kpcn.xml")
+    if scene_dict == None: scene = mi.load_file(f"assets{suffix}/kpcn/{name}/scene_kpcn.xml")
     else: scene = mi.load_dict(scene_dict)
-    if scene_dict_specular == None: scene_specular = mi.load_file(f"assets{suffix}/regular/{name}/scene_specular.xml")
+    if scene_dict_specular == None: scene_specular = mi.load_file(f"assets{suffix}/kpcn/{name}/scene_specular.xml")
     else: scene_specular = mi.load_dict(scene_dict_specular)
 
     params = get_scene_parameters(scene, False)
@@ -91,8 +87,17 @@ def generate_data(name, frame_number, translation_step, rotation_step, minimum_r
         params["PerspectiveCamera.film.crop_size"] = [w, h]
         params_specular["PerspectiveCamera.film.size"] = [w, h]
         params_specular["PerspectiveCamera.film.crop_size"] = [w, h]
+    
+    return scene, scene_specular, params, params_specular
 
-    print(params["PerspectiveCamera.film.size"])
+def generate_data(name, frame_number, translation_step, rotation_step, minimum_radiance, random_seed, h=None, w=None, scene_dict=None, scene_dict_specular=None):
+
+    exr_list = []
+    gt_exr_list = []
+    translation_vector, rotation_axis = generate_translation(frame_number, random_seed)
+
+    # Render Scene
+    scene, scene_specular, params, params_specular = load_scene(name, h, w, scene_dict, scene_dict_specular) 
 
     for i in tqdm(range(frame_number)):
         
@@ -106,9 +111,15 @@ def generate_data(name, frame_number, translation_step, rotation_step, minimum_r
                 camera_translation(params_specular, translation_vector[i], rotation_axis[i], -3 * translation_step, -rotation_step)
                 thumbnail = render_thumbnail(scene, params, f'{name}_{i}')
 
+        scene, scene_specular, params, params_specular = load_scene(name, h, w, scene_dict, scene_dict_specular) 
         exr_list.append(render_avo(scene, sample_num=8, file_name=name, gt=False))
+        
+        scene, scene_specular, params, params_specular = load_scene(name, h, w, scene_dict, scene_dict_specular) 
         gt_exr_list.append(render_avo(scene, sample_num=1000, file_name=f'{name}_{i}', gt=True))
+        
         specular_component = scene_specular.integrator().render(scene_specular, spp=8)
+        
+        scene, scene_specular, params, params_specular = load_scene(name, h, w, scene_dict, scene_dict_specular) 
         gt_specular_component = scene_specular.integrator().render(scene_specular, spp=1000)
         exr_list[i]['Specular'] = np.array(specular_component)
         exr_list[i]['Diffuse'] = exr_list[i]['Color'] - exr_list[i]['Specular']
@@ -120,6 +131,14 @@ def generate_data(name, frame_number, translation_step, rotation_step, minimum_r
 
 if __name__ == "__main__":
     
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--total-sample', type=int, default=8)
+    parser.add_argument('--frame-num', type=int, default=10)
+    parser.add_argument('--object-num', type=int, default=500)
+    parser.add_argument('--test', action='store_true')
+    parser.add_argument('--scene-type', type=str, default="indoor")
+    args = parser.parse_args()
+    
     h = 512
     w = 512
     
@@ -127,21 +146,26 @@ if __name__ == "__main__":
     # generate_data(f'shapenet_dof', frame_number=1, translation_step=0.5, rotation_step=15, minimum_radiance=1, random_seed=0,
     #                          scene_dict=scene_dict, scene_dict_specular=scene_dict_specular, h=h, w=w)
 
-    # scene_name = 'dof'
-    # i = 0
-    # while i < 15:
-    #     print(f"Generating ShapeNet Scene (Depth of View) --> {i}")
-    #     try:
-    #         scene_dict, scene_dict_specular, _ = get_shapenet_dov(h, w)
-    #         generate_data(f'{scene_name}_{i}', frame_number=3, translation_step=0.5, rotation_step=15, minimum_radiance=1, random_seed=i,
-    #                         scene_dict=scene_dict, scene_dict_specular=scene_dict_specular, h=h, w=w)
-    #         i += 1
-    #     except:
-    #         print(f"Error! Retrying...")
+    # Generate random single / pinhole / depth-of-field shapenet data
+    if args.scene_type == "pinhole" or args.scene_type == "dof" or args.scene_type == "single":
+        i = 8
+        while i <= 10:
+            dir = f"assets{suffix}/shapenet"
+            print(f"Generating ShapeNet Scene ({args.scene_type}) --> {i}")
+            # try:
+            scene_dict, scene_dict_specular, _ = get_shapenet_scene(h, w, method='kpcn', scene_type=args.scene_type)
+            scene_name = f'shapenet_{args.scene_type}_{i}'
+            generate_data(scene_name, frame_number=1, translation_step=0.5, rotation_step=15, minimum_radiance=1, random_seed=i,
+                        scene_dict=scene_dict, scene_dict_specular=scene_dict_specular, h=h, w=w)
+            i += 1
+            # except:
+            #     print(f"Error! Retrying...")
 
-    asset_dir = os.listdir(f"assets{suffix}/regular")
-    
-    for index in range(len(asset_dir)):
-        print(f"Generate Scene {asset_dir[index]}")
-        scene_name = asset_dir[index]
-        generate_data(scene_name, frame_number=1, translation_step=0.1, rotation_step=5, minimum_radiance=1, random_seed=0, h=None, w=None)
+    # Genereate indoor & complex data
+    if args.scene_type == "indoor" or args.scene_type == "complex":
+        asset_dir = os.listdir(f"assets{suffix}/kpcn")
+        
+        for index in range(len(asset_dir)):
+            print(f"Generate Scene {asset_dir[index]}")
+            scene_name = asset_dir[index]
+            generate_data(scene_name, frame_number=1, translation_step=0.1, rotation_step=5, minimum_radiance=1, random_seed=0, h=None, w=None)

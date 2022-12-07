@@ -73,8 +73,8 @@ def output_max_min(output):
 if __name__ == "__main__":
 
     # name = 'shapenet_0'
-    name = 'shapenet_pinhole_1'
-    # name = 'bathroom_1'
+    # name = 'shapenet_pinhole_1'
+    name = 'bathroom'
     
     # dir = 'train_small'
     dir = 'test'
@@ -104,7 +104,7 @@ if __name__ == "__main__":
     cv2.imwrite(f"visualization_features/{name}/specular.png", 
                 cv2.cvtColor(((sample_feature[feature_index, :, :, 0:3] - sample_feature[feature_index, :, :, 6:9]).clip(0, np.Inf) ** 0.4545454) * 255., cv2.COLOR_BGR2RGB))
     
-    cv2.imwrite(f"visualization_features/{name}/depth.png", sample_feature[feature_index, :, :, 10])
+    cv2.imwrite(f"visualization_features/{name}/depth.png", sample_feature[feature_index, :, :, 10] / np.max(sample_feature[feature_index, :, :, 10]) * 255)
     cv2.imwrite(f"visualization_features/{name}/normal.png", cv2.cvtColor(sample_feature[feature_index, :, :, 11:14] * 255., cv2.COLOR_BGR2RGB))
     cv2.imwrite(f"visualization_features/{name}/position.png", cv2.cvtColor(sample_feature[feature_index, :, :, 14:17] * 255., cv2.COLOR_BGR2RGB))
     cv2.imwrite(f"visualization_features/{name}/albedo.png", cv2.cvtColor(sample_feature[feature_index, :, :, 17:20] * 255., cv2.COLOR_BGR2RGB))
