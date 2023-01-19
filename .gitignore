@@ -15,3 +15,5 @@ halide_ops/test
 *.pt
 *.pth.tar
 *.npz
+
+!pic/denoise.png
