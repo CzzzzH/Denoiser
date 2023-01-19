@@ -1,11 +1,9 @@
-from random import weibullvariate
 from util import *
 import json
 import os
 import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib
 
 def get_batch(list, batch_size):
     return [sum(x) / float(len(x))
@@ -153,12 +151,12 @@ def draw_video_denoising_line():
     
 if __name__ == "__main__":
 
-    # dir_path = 'visualization_curves'
-    # file_name_1 = 'sbmc_loss_1150'
-    # file_name_2 = 'sbmc_loss_1150'
-    # batch_size = 500
+    dir_path = 'visualization_curves'
+    file_name_1 = 'sbmc_loss_1150'
+    file_name_2 = 'sbmc_loss_1150'
+    batch_size = 500
     
     # get_single_curve(dir_path, file_name_1, "SBMC", batch_size)
-    # get_compared_curve(dir_path, file_name_1, file_name_2, "KPCN", "SBMC", batch_size)
-    draw_video_denoising_line()
+    get_compared_curve(dir_path, file_name_1, file_name_2, "KPCN", "SBMC", batch_size)
+    # draw_video_denoising_line()
     

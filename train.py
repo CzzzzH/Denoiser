@@ -49,7 +49,7 @@ def train_kpcn(args):
     num_features = 64
     
     learning_rate = 1e-5
-    epochs = 1200
+    epochs = 100
     batch_size = 1
     print_interval = 10
     save_interval = 10
@@ -137,7 +137,7 @@ def train_sbmc(args):
     num_global_features = 3
 
     learning_rate = 1e-5
-    epochs = 7200
+    epochs = 100
     batch_size = 1
     print_interval = 10
     save_interval = 10

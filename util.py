@@ -7,7 +7,7 @@ def parse_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--checkpoint', type=int, default=-1)
-    parser.add_argument('--mode', type=str, default='kpcn')
+    parser.add_argument('--mode', type=str, default='sbmc')
     parser.add_argument('--video', action='store_true')
     args = parser.parse_args()
     return args
