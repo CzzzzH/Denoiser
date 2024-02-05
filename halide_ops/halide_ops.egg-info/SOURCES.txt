@@ -4,5 +4,3 @@ halide_ops.egg-info/PKG-INFO
 halide_ops.egg-info/SOURCES.txt
 halide_ops.egg-info/dependency_links.txt
 halide_ops.egg-info/top_level.txt
-test/test_kernel_weighting.py
-test/test_scatter2gather.py

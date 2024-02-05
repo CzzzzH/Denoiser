@@ -16,7 +16,6 @@ from util import show_data_compare, parse_args
 np.random.seed(0)
 torch.manual_seed(0)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-# device = "cpu"
 print(f'Train Device: {device}')
 
 def load_data(data_dir, mode='sbmc'):
@@ -27,7 +26,7 @@ def load_data(data_dir, mode='sbmc'):
             for j in range(1, 17):
                 train_list.append(f'{data_dir}/train/shapenet_single_{i}_{j}_data.npz')
     else:
-        train_dir = os.path.join(data_dir, 'train')
+        train_dir = os.path.join(data_dir, 'train_all')
         train_list = os.listdir(train_dir)
         train_list = [os.path.join(train_dir, f) for f in train_list if f.endswith('.npz')]
         
@@ -60,7 +59,7 @@ def train_kpcn(args):
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=16)
     model = KPCN(n_in=num_features).to(device)
     
-    start_epoch = 1001
+    start_epoch = 1
     loss_list = []
     
     if args.checkpoint >= 0:
@@ -150,11 +149,9 @@ def train_sbmc(args):
         dataset = load_data(data_dir='data', mode='sbmc')
         
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=16)
-    
-    # model = SBMC(n_features=num_features, n_global_features=num_global_features, video=args.video, splat=False).to(device)
     model = SBMC(n_features=num_features, n_global_features=num_global_features, video=args.video, splat=True).to(device)
     
-    start_epoch = 10000
+    start_epoch = 1
     loss_list = []
     
     if args.checkpoint >= 0:
